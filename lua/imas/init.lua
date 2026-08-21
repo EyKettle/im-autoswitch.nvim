@@ -4,6 +4,7 @@ local WSL_ENV = "WSL_DISTRO_NAME"
 
 ---@type table<number, table<string, string>>
 local stored_im = {} -- key: buf(number), value: modes(mode name as key, current im as value)
+local app_stored_im = nil -- used for focus events
 local default_im = ""
 local get_im_cmd = {} ---@type string[]
 local switch_im_cmd = {} ---@type string[]
@@ -179,6 +180,77 @@ function M.im_leave(mode, buf, async)
   inner(gen_order(), async)
 end
 
+--- Called when FocusGained
+---@param async boolean async or not? NOTE: set async to false only make the function as sync for best effort
+function M.im_enter_app(async)
+  local function inner(order, inner_async)
+    -- if lock or not in the correct order, schedule it later
+    -- same in im_leave_app
+    if switch_im_lock or not is_order_correct(order) then
+      vim.schedule(function()
+        inner(order, true)
+      end)
+      return
+    end
+
+    local function on_exit(out)
+      local cur_im = vim.trim(out.stdout)
+      if app_stored_im == nil or app_stored_im == cur_im then
+        cur_order = cur_order + 1
+        switch_im_lock = false
+      else
+        switch_im(app_stored_im, inner_async)
+      end
+    end
+
+    switch_im_lock = true
+    if switch_im_para_loc ~= -1 then
+      if app_stored_im ~= nil then
+        switch_im(app_stored_im, inner_async)
+      else
+        cur_order = cur_order + 1
+        switch_im_lock = false
+      end
+    else
+      if inner_async then
+        vim.system(get_im_cmd, { text = true, stderr = false }, on_exit)
+      else
+        local out = vim.system(get_im_cmd, { text = true, stderr = false }):wait()
+        on_exit(out)
+      end
+    end
+  end
+
+  inner(gen_order(), async)
+end
+
+--- Called when FocusLost
+---@param async boolean async or not? NOTE: set async to false only make the function as sync for best effort
+function M.im_leave_app(async)
+  local function inner(order, inner_async)
+    if switch_im_lock or not is_order_correct(order) then
+      vim.schedule(function()
+        inner(order, true)
+      end)
+      return
+    end
+
+    local function on_exit(out)
+      app_stored_im = vim.trim(out.stdout)
+    end
+
+    switch_im_lock = true
+    if inner_async then
+      vim.system(get_im_cmd, { text = true, stderr = false }, on_exit)
+    else
+      local out = vim.system(get_im_cmd, { text = true, stderr = false }):wait()
+      on_exit(out)
+    end
+  end
+
+  inner(gen_order(), async)
+end
+
 --- switch to default im
 ---@param async boolean async or not? NOTE: set async to false only make the function as sync for best effort
 function M.im_default(async)
@@ -259,6 +331,7 @@ function M.setup(user_opts)
       search = "autoswitch",
       cmdline = "leave_default",
       terminal = "default",
+      focus = "autoswitch",
     },
     keymap = {
       r = "r",
@@ -334,6 +407,21 @@ function M.setup(user_opts)
 
     local mode_autocmd = mode_to_autocmd[mode]
     if mode_opt == "autoswitch" then
+      if mode == "focus" then
+        vim.api.nvim_create_autocmd("FocusGained", {
+          callback = function()
+            M.im_enter_app(opts.async and not sync_enter)
+          end,
+          group = augroup,
+        })
+        vim.api.nvim_create_autocmd("FocusLost", {
+          callback = function()
+            M.im_leave_app(opts.async)
+          end,
+          group = augroup,
+        })
+        goto continue
+      end
       vim.api.nvim_create_autocmd(mode_autocmd.enter[1], {
         callback = function(args)
           M.im_enter(mode, args.buf, opts.async and not sync_enter)

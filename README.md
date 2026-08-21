@@ -87,12 +87,14 @@ require("imas").setup {
     -- "enter_default"(string): back to default im at enter
     -- "leave_default"(string): back to default im at leave
     -- false(boolean): do nothing
+    -- focus mode can only be set to "autoswitch" or false
     insert = "autoswitch", -- im-autoswitch trigger at InsertEnter/InsertLeave
     search = "autoswitch", -- im-autoswitch trigger at CmdlineEnter/CmdlineLeave(/ or \?)
     cmdline = "leave_default", -- not back to default im at CmdlineEnter(:) by default
                                     -- because some ims can't produce ":" directly;
                                     -- back to default im at CmdlineLeave(:)
     terminal = "default", -- always back to default im at TermEnter/TermLeave
+    focus = "autoswitch", -- im-autoswitch trigger at FocusGained/FocusLost(a little different from other modes)
   },
 
   -- set keymaps because some special neovim commands which don't trigger events
