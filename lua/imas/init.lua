@@ -333,7 +333,7 @@ function M.setup(user_opts)
       search = "autoswitch",
       cmdline = "leave_default",
       terminal = "default",
-      focus = "autoswitch",
+      focus = false,
     },
     keymap = {
       r = "r",

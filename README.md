@@ -94,7 +94,7 @@ require("imas").setup {
                                     -- because some ims can't produce ":" directly;
                                     -- back to default im at CmdlineLeave(:)
     terminal = "default", -- always back to default im at TermEnter/TermLeave
-    focus = "autoswitch", -- im-autoswitch trigger at FocusGained/FocusLost(a little different from other modes)
+    focus = false,
   },
 
   -- set keymaps because some special neovim commands which don't trigger events
