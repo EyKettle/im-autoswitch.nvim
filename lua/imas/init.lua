@@ -237,6 +237,8 @@ function M.im_leave_app(async)
 
     local function on_exit(out)
       app_stored_im = vim.trim(out.stdout)
+      cur_order = cur_order + 1
+      switch_im_lock = false
     end
 
     switch_im_lock = true
